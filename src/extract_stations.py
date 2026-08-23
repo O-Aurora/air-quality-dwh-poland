@@ -5,11 +5,14 @@ from sqlalchemy import create_engine
 
 load_dotenv('../.env')
 DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASS = os.getenv('DB_PASSWORD', 'your_password_here')
+DB_PASS = os.getenv('DB_PASSWORD')
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_PORT = os.getenv('DB_PORT', '5432')
 DB_NAME = os.getenv('DB_NAME', 'zelona_gora_dwh')
 
+# Safety check: stop execution if password is missing from environment
+if not DB_PASS:
+    raise ValueError("ERROR: DB_PASSWORD variable not found in .env file!")
 
 DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 engine = create_engine(DATABASE_URL)
