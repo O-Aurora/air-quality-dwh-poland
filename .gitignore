@@ -1,12 +1,22 @@
-# Игнорируем абсолютно всё по умолчанию
+# Ignore everything by default
 *
 
-# Но делаем исключение для папок (чтобы Git мог искать в них)
+# Allow directories
 !*/
 
-# Разрешаем Git видеть только наши целевые файлы скриптов
+# Track source files
 !src/
 !src/**
 
-# Разрешаем сам файл настроек gitignore
+# Ignore IDE settings
+.vs/
+.vscode/
+.idea/
+
+# Ignore environment & local files
+.env
+*.log
+src/**/*.log
+
+# Track gitignore itself
 !.gitignore
