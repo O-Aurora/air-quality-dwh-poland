@@ -39,6 +39,21 @@ DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{
 engine = create_engine(DATABASE_URL)
 data_dir = BASE_DIR / "raw_data"
 
+# Ensure Stage table DDL with audit column exists
+with engine.connect() as conn:
+    conn.execute(
+        text("""
+        CREATE TABLE IF NOT EXISTS stage_measurements (
+            id SERIAL PRIMARY KEY,
+            sensor_code VARCHAR(50),
+            date VARCHAR(50),
+            value VARCHAR(50),
+            loaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    )
+    conn.commit()
+
 #2. Search for Excel files with '_1g' excluding 'Prekursory'
 files = [
     f for f in data_dir.rglob("*.xlsx") 
