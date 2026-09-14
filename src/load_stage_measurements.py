@@ -1,6 +1,6 @@
 """
 ETL Script: Load Air Quality Measurements into Stage Layer.
-Extracts raw Excel files (_1g), transforms wide format to narrow (melt),
+Extracts raw Excel files (_1g and _24g), transforms wide format to narrow (melt),
 and loads data into PostgreSQL stage_measurements table with audit tracking.
 """
 
@@ -39,6 +39,8 @@ DATABASE_URL = f'postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{
 engine = create_engine(DATABASE_URL)
 data_dir = BASE_DIR / "raw_data"
 
+valid_sensors = set(pd.read_sql("SELECT sensor_code FROM dim_sensors", engine)["sensor_code"])
+
 # Ensure Stage table DDL with audit column exists
 with engine.connect() as conn:
     conn.execute(
@@ -54,10 +56,10 @@ with engine.connect() as conn:
     )
     conn.commit()
 
-#2. Search for Excel files with '_1g' excluding 'Prekursory'
+#2. Search for Excel files with '_1g' and '_24g' excluding 'Prekursory'
 files = [
     f for f in data_dir.rglob("*.xlsx") 
-    if "_1g" in f.name and "Prekursory" not in f.name
+    if ("_1g" in f.name or "_24g" in f.name) and "Prekursory" not in f.name
 ]
 logging.info(f"Total files found: {len(files)}")
 
@@ -97,19 +99,20 @@ for idx, file_path in enumerate(files, 1):
     try:
         df_raw = pd.read_excel(file_path, header=None)
 
-    # Search for header row containing the keyword 'Kod'
-        mask = df_raw.apply(
-           lambda row: row.astype(str).str.contains("Kod", case=False).any(),
-            axis=1,
-        )
-        
-        matching_indices = df_raw[mask].index
-        if matching_indices.empty:
-            logging.error(f"[{idx}/{len(files)}] Keyword 'Kod' not found in {file_name}")
-            continue
-        header_idx = matching_indices[0]
-        df_clean = df_raw.iloc[header_idx + 1 :].copy()
+    # Search for header row containing sensors code
+    
+        header_idx = None
+        for idx_row in range(min(10, len(df_raw))):
+            row_values = set(df_raw.iloc[idx_row].dropna().astype(str).str.strip())
+            if not row_values.isdisjoint(valid_sensors):
+                header_idx = idx_row
+                break
 
+        if header_idx is None:
+            logging.error(f"[{idx}/{len(files)}] Header row with valid sensor codes not found in {file_name}")
+            continue
+
+        df_clean = df_raw.iloc[header_idx + 1:].copy()    
     # Safely rename the first column to 'date'
         cols = list(df_raw.iloc[header_idx])
         cols[0] = "date"
@@ -130,8 +133,7 @@ for idx, file_path in enumerate(files, 1):
                 con=conn,
                 if_exists="append",  
                 index=False,
-                method="multi",
-                chunksize=10000,
+                chunksize=30000,
             )
             conn.execute(
                 text(
