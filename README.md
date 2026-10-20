@@ -26,7 +26,7 @@ The production schema follows a normalized Dimensional Model (Snowflake / Star S
 +--------------------+         +--------------------+         +--------------------+
 |    dim_stations    | ------> |     dim_cities     | ------> |  dim_voivodeships  |
 +--------------------+         +--------------------+         +--------------------+
-
+```
 
 ### Core Production Tables:
 
