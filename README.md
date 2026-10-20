@@ -44,6 +44,7 @@ The production schema follows a normalized Dimensional Model (Snowflake / Star S
 
 ## Project Structure
 
+```text
 src/
 ├── extract_sensors.py               # Extracts sensor metadata from historical archives
 ├── extract_stations.py              # Extracts monitoring stations metadata from historical archives
@@ -58,7 +59,7 @@ src/
     ├── 04_audit_quarantine.sql      # Diagnostic queries to analyze and categorize data quality issues in quarantine_stations
     ├── 05_resolve_quarantine.sql    # Applies approved resolutions from quarantine, updates dimensions, inserts new stations, and revives historical records
     └── load_core_measurements.sql   # Core Layer DDL for fact measurements, idempotent ingestion, and validation (Archives & API streams)
-
+```
 ## Technical Stack
 * Database: PostgreSQL (Advanced DDL/DML, CTEs, Window Functions, Transactions)
 * Languages: Python, SQL
