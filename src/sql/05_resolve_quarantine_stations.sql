@@ -2,6 +2,8 @@
 -- Description: Applies approved resolutions from quarantine, updates active DWH dimensions, 
 --              inserts new stations, revives specific "sleeping" historical stations, 
 --              and cleans up processed records.
+
+-- Pre-update: Safely deactivate specifically identified outdated or closed stations
 UPDATE dim_stations 
 SET is_active = FALSE, end_date = CURRENT_DATE 
 WHERE station_code IN ('PmGdaGrunwalTMP', 'SkSolecZdroj');
@@ -37,8 +39,7 @@ WHERE ROUND(d.gegr_lat::numeric, 4) = ROUND(q.gegr_lat::numeric, 4)
 
 
 --------------------------------------------------------------------------------
--- STEP 3: Insert genuinely NEW stations and successors (like OpNysaRodzi2)
--- (Сюда уйдут только те, у которых действительно абсолютно новый код, отсутствующий в DWH)
+-- STEP 3: Insert genuinely NEW stations and successors (guarded against duplicates)
 --------------------------------------------------------------------------------
 INSERT INTO dim_stations (station_code, station_name, city_id, gegr_lat, gegr_lon, api_station_id, is_active)
 SELECT 
@@ -59,7 +60,6 @@ WHERE q.quarantine_reason = 'Nothing matches: station code and coordinates are c
 
 --------------------------------------------------------------------------------
 -- STEP 4: SPECIAL CASE — Revive "sleeping" / closed historical stations found in API
--- (Особый случай: код совпал, но станция была выключена, например PmGdaPowWars)
 --------------------------------------------------------------------------------
 UPDATE dim_stations d
 SET 
@@ -70,7 +70,7 @@ SET
     end_date = NULL
 FROM quarantine_stations q
 WHERE d.station_code = q.station_code
-  AND d.is_active = FALSE        -- Трогаем только то, что было выключено
+  AND d.is_active = FALSE        -- Target only historically inactive records
   AND d.api_station_id IS NULL;
 
 
