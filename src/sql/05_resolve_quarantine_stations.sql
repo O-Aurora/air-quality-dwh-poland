@@ -10,6 +10,21 @@ WHERE station_code IN ('PmGdaGrunwalTMP', 'SkSolecZdroj');
 
 BEGIN;
 
+-- =========================================================================
+-- STEP 0: Auto-register missing cities for quarantined stations
+-- =========================================================================
+INSERT INTO dim_cities (city_name, voivodeship_id)
+SELECT DISTINCT 
+    q.city_name,
+    v.voivodeship_id
+FROM quarantine_stations q
+JOIN dim_voivodeships v ON LOWER(q.voivodeship) = LOWER(v.voivodeship_name)
+WHERE NOT EXISTS (
+    SELECT 1 FROM dim_cities c 
+    WHERE LOWER(c.city_name) = LOWER(q.city_name) 
+      AND c.voivodeship_id = v.voivodeship_id
+);
+
 --------------------------------------------------------------------------------
 -- STEP 1: Resolve stations with coordinate discrepancies for ACTIVE stations only
 --------------------------------------------------------------------------------
