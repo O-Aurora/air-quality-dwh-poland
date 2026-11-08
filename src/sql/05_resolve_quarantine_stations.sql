@@ -8,6 +8,17 @@ UPDATE dim_stations
 SET is_active = FALSE, end_date = CURRENT_DATE 
 WHERE station_code IN ('PmGdaGrunwalTMP', 'SkSolecZdroj');
 
+-- Pre-update exception: Force-activate and link specific stations stuck in quarantine by coordinates
+UPDATE dim_stations d
+SET 
+    api_station_id = q.station_id_api,
+    is_active = TRUE,
+    end_date = NULL
+FROM quarantine_stations q
+WHERE ROUND(d.gegr_lat::numeric, 4) = ROUND(q.gegr_lat::numeric, 4)
+  AND ROUND(d.gegr_lon::numeric, 4) = ROUND(q.gegr_lon::numeric, 4)
+  AND q.station_id_api IN (10093, 10817);
+
 BEGIN;
 
 -- =========================================================================
