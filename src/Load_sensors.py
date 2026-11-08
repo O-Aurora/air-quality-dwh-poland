@@ -27,6 +27,7 @@ df_clean = df_sensors[[
     'kod_stacji',
     'wskaźnik_-_kod',
     'wskaźnik',
+    'czas_uśredniania',
     'typ_pomiaru',
     'data_uruchomienia',
     'data_zamknięcia'
@@ -39,14 +40,33 @@ df_clean.columns = [
     'station_code',
     'param_code',
     'param_name',
+    'averaging_time_hours',
     'measurement_type',
     'start_date',
     'end_date'
 ]
 # Strip leading/trailing whitespace from string fields
-text_columns = ['sensor_code', 'station_code', 'param_code', 'param_name', 'measurement_type']
+text_columns = ['sensor_code', 'station_code', 'param_code', 'param_name', 'averaging_time_hours', 'measurement_type']
 for col in text_columns:
     df_clean[col] = df_clean[col].str.strip()
+
+def parse_averaging_hours(val):
+    if pd.isna(val):
+        return None
+    val_clean = "".join(val.split())
+    
+    if '24' in val_clean:
+        return 24
+    elif '1' in val_clean:
+        return 1
+    elif 'miesięczny' in val_clean:
+        return 730  # Monthly measurement: approx. average hours in a month (30.4 days * 24h)
+    elif '2-tygodniowy' in val_clean:
+        return 336
+    else:
+        raise ValueError(f"CRITICAL: Unknown or unexpected averaging time format: '{val}'")
+
+df_clean['averaging_time_hours'] = df_clean['averaging_time_hours'].apply(parse_averaging_hours)
 
 # 3. Create & Load Parameters Dimension (dim_parameters)
 dim_parameters = df_clean[['param_code', 'param_name']].drop_duplicates().reset_index(drop=True)
@@ -96,6 +116,7 @@ df_sensors_final = (
         'sensor_code',
         'station_id',
         'param_id',
+        'averaging_time_hours',
         'measurement_type',
         'start_date',
         'end_date'
@@ -106,11 +127,29 @@ df_sensors_final = (
 # Cast ID columns back to integer (left merge creates float types due to NaN values)
 df_sensors_final['station_id'] = df_sensors_final['station_id'].astype(int)
 df_sensors_final['param_id'] = df_sensors_final['param_id'].astype(int)
+df_sensors_final['averaging_time_hours'] = df_sensors_final['averaging_time_hours'].astype(int)
 
-#6. Truncate & Load Sensors Dimension (dim_sensors)
+#6. Create, truncate & Load Sensors Dimension (dim_sensors)
+
+create_table_sql = """
+CREATE TABLE IF NOT EXISTS dim_sensors (
+    sensor_id SERIAL PRIMARY KEY,
+    sensor_code VARCHAR(100) UNIQUE,
+    station_id INT REFERENCES dim_stations(station_id),
+    param_id INT REFERENCES dim_parameters(param_id),
+    averaging_time_hours INT NOT NULL CHECK (averaging_time_hours > 0),
+    measurement_type VARCHAR(50),
+    start_date TIMESTAMP,
+    end_date TIMESTAMP
+);
+"""
+
 with engine.connect() as connection:
+   
+    connection.execute(text(create_table_sql))
     connection.execute(text("TRUNCATE TABLE dim_sensors RESTART IDENTITY CASCADE;"))
     connection.commit()
 
 df_sensors_final.to_sql('dim_sensors', con=engine, if_exists='append', index=False)
 print(f"[SUCCESS] Successfully loaded {len(df_sensors_final)} sensors into dim_sensors!")
+
