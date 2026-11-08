@@ -44,10 +44,11 @@ columns_to_strip = ['nazwa_stacji', 'stary_kod_stacji_(o_ile_inny_od_aktualnego)
 for col in columns_to_strip:
     df_stations[col] = df_stations[col].str.strip()
 
-# Validate station start/close dates & active status
+# Validate station start/close dates & active status, drop duplicates
 data_mask = df_stations['data_zamknięcia'] < df_stations['data_uruchomienia']
 df_stations.loc[data_mask, 'data_zamknięcia'] = None
 df_stations['is_active']=df_stations['data_zamknięcia'].isna()
+df_stations.drop_duplicates(keep='first', inplace=True)
 
 # Save processed staging data
 df_stations.to_sql('clean_stations', con=engine, if_exists='replace', index=False)
@@ -73,7 +74,7 @@ df_cities_with_id = df_cities.merge(
     right_on='voivodeship_name', 
     how='inner'
 )
-#Słownik miast
+#City dictionary
 df_cities_with_id.rename(columns={'miejscowość': 'city_name'}, inplace=True)
 df_cities_with_id=df_cities_with_id[['city_name', 'voivodeship_id']]
 df_cities_with_id.reset_index(drop=True, inplace=True)
@@ -119,6 +120,7 @@ df_stations_final = df_stations_with_id[[
     'station_code', 'station_name', 'gegr_lat', 'gegr_lon', 'city_id',
     'station_address', 'start_date', 'end_date', 'station_type', 'area_type', 'measurement_type', 'is_active'
 ]]
+df_stations_final.drop_duplicates(subset=['station_code'], keep='first', inplace=True)
 # Truncate and reload stations dictionary
 with engine.connect() as connection:
     connection.execute(text("TRUNCATE TABLE dim_stations RESTART IDENTITY CASCADE;"))
