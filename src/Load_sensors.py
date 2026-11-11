@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS dim_sensors (
     sensor_code VARCHAR(100) UNIQUE,
     station_id INT REFERENCES dim_stations(station_id),
     param_id INT REFERENCES dim_parameters(param_id),
-    averaging_time_hours INT NOT NULL CHECK (averaging_time_hours > 0),
+    averaging_time_hours INT,
     measurement_type VARCHAR(50),
     start_date TIMESTAMP,
     end_date TIMESTAMP
